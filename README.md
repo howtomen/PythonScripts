@@ -2,7 +2,7 @@
 Scripts I've made in python
 
 
-Email Cleaning Script Requirements and instructions:
+Gmail Tools Requirements and instructions:
 1. Needs python3: https://www.python.org/downloads/
 2. Make sure imap is enabled in gmail following these instructions
   https://support.google.com/mail/answer/7126229?hl=en#zippy=%2Cstep-check-that-imap-is-turned-on
