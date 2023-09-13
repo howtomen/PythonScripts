@@ -1,12 +1,13 @@
-
+import os
+import sys
 import imaplib
 import email
 import collections
+import argparse
 
 
 
-username = 'sample@gmail.com' #any gmail goes here
-password = 'enter app password here' #generate app password from gmail security settings 
+ 
 
 
 
@@ -27,7 +28,7 @@ def menu() -> int:
 			res = 0
 	return int(res) 
 
-def getSenders() -> tuple:
+def getSenders(username: str, password: str) -> tuple:
 	"""
 	1.Login to gmail Account
 	2. Create Counter to track number of emails sent from each domain
@@ -78,7 +79,7 @@ def setIgnoreList(count: dict) -> tuple:
 	"""
 	ignoreList,big,smol, cutoff = set(),max(count.values()),min(count.values()), None
 
-	
+
 	print("The domain that has sent you the most emails has sent ",big, " emails")
 	print("The domain that has sent you the least emails has sent ",smol, " emails")
 	print("We are gonna be moving emails into folders based off domain.")
@@ -131,21 +132,23 @@ def SortEmails(count: dict, uid_map: dict, cutoff: int, ignoreList: set):
 	:param ignoreList: set of domains to ignore when creating labels
 	"""
 	domainList = sorted(list(count.keys()), key = lambda x: -count[x]) #gets list of domain sorted by email count desc
-	print("getting label info")
+	
+	print("getting label/folder info")
 	res,folder_data = imap.list()
 	folders = set([folder.split()[-1].decode("utf-8").strip('\"') for folder in folder_data]) 
+
 	print("Moving emails into labels")
 	for domain in domainList:
-		if domain in ignoreList or count[domain] < cutoff:
+		if domain in ignoreList or count[domain] < cutoff: #ignore domains on ignoreList or with less emails than cutoff value
 			continue
 		else:
-			if domain not in folders:
+			if domain not in folders: #check if folder/label exists and create it if it does not exist
 				print("Creating label for", domain, "and adding it to", count[domain], "emails ")
 				imap.create(domain)
 			else:
 				print("label exists for", domain, "now adding", count[domain], "emails to label")
-			domain_uids = b','.join(uid_map[domain])
-			imap.store(domain_uids, '+X-GM-LABELS', '('+domain+')')
+			domain_uids = b','.join(uid_map[domain]) #create one list of UIDs in label to speed up addition of label
+			imap.store(domain_uids, '+X-GM-LABELS', '('+domain+')') #add label to all emails of domain
 	print("done")
 	return
 
@@ -188,12 +191,27 @@ def deleteEmails():
 	return
 
 def main():
+	parser = argparse.ArgumentParser(description="Parse login credentials (username/app password)")
+	parser.add_argument("--username",
+					 action="store",
+					 help="Enter email to use",
+					 dest="username",
+					 required=True)
+	parser.add_argument("--password",
+					 action="store",
+					 help="Enter App password to login",
+					 dest="password",
+					 required=True)
+	parsed_args = parser.parse_args(sys.argv[1:])
+
+	username, password = parsed_args.username, parsed_args.password
 	res = None 
 	login = False
+
 	while res != 4:
 		res = menu()
 		if res == 1:
-			count, uid_map = getSenders()
+			count, uid_map = getSenders(username,password)
 			login = True
 		elif res == 2:
 			if not login:
