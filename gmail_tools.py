@@ -152,7 +152,7 @@ def SortEmails(count: dict, uid_map: dict, cutoff: int, ignoreList: set):
 	print("done")
 	return
 
-def deleteEmails():
+def deleteEmails(username: str, password: str):
 	"""
 	1. Gets Folder/Label structure of inbox
 	2. Lets users pick which folders/labels to delete
@@ -223,7 +223,7 @@ def main():
 			if not login:
 				print("Need to run login and discovery before this")
 				continue
-			deleteEmails()
+			deleteEmails(username, password)
 		else:
 			print("Goodbye!")
 			return 
@@ -231,5 +231,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
-	
