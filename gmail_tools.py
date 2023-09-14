@@ -16,33 +16,43 @@ def menu() -> int:
 	Main Program Menu
 	"""
 	res = 0
-	print("*Instructions: Run Login  discovery before anything else*")
-	print("[1] Login and run Sender discovery")
-	print("[2] Run Inbox Sort (moves emails to labels by domain)")
+	print("*Instructions: Select an option from the list below*")
+	print("[1] Login")
+	print("[2] Run sender discovery and inbox Sort (moves emails to labels by domain)")
 	print("[3] Delete emails in certain folders/labels (You will select which emails to delete)")
-	print("[4] exit")
-	while int(res) not in range(1,5):
-		res = input("Enter an option 1-4: ")
+	print("[4] Delete empty Folders/Labels")
+	print("[5] Exit")
+	while int(res) not in range(1,6):
+		res = input("Enter an option 1-5: ")
 		if not res.isnumeric(): #validate input
 			print("Enter valid option")
 			res = 0
 	return int(res) 
 
-def getSenders(username: str, password: str) -> tuple:
+def login(username: str, password: str) -> bool:
 	"""
-	1.Login to gmail Account
-	2. Create Counter to track number of emails sent from each domain
-	3. also map Email UID to each domain
-	4. return counter and map in tuple
+	Function to login to gmail. 
 	"""
-	global imap #make global so it can be used by other functions 
+	global imap  #make global so it can be used by all functions 
+	imap = imaplib.IMAP4_SSL('imap.gmail.com') #open connection
+	print("Logging into", username)
+	res, status = imap.login(username, password)
+	print(status)
+
+	return status[0].decode('utf-8').split()[-1] == '(Success)'
+
+def getSenders(username: str, password: str, login: bool) -> tuple:
+	"""
+	1. Create Counter to track number of emails sent from each domain
+	2. also map Email UID to each domain
+	3. return counter and map in tuple
+	"""
+	
 	counter  = collections.Counter()
 	uid_map = collections.defaultdict(list)
 
-
-	imap = imaplib.IMAP4_SSL('imap.gmail.com') #open connection
-	print("Logging into", username)
-	imap.login(username, password) 
+	if not login:
+		login = login(username, password) #logging in
 	imap.select('inbox') #selecting inbox 
 	
 	print("Getting Email UIDs")
@@ -161,8 +171,8 @@ def deleteEmails(username: str, password: str):
 	print("Getting folder info from", username)
 	res,folder_data = imap.list()
 	folders = list([folder.split()[-1].decode("utf-8").strip('\"') for folder in folder_data]) 
-	count = 0
-	confirm = 'w'
+	count, step = 0, 3
+	confirm = 'w' 
 	for a,b,c in zip(folders[::3], folders[1::3], folders[2::3]):
 		print(f'{"["+str(count)+"] "+ a: <40}{"["+str(count+1)+"] "+b: <40}{"["+str(count+2)+"] "+c}')
 		count += 3
@@ -190,6 +200,24 @@ def deleteEmails(username: str, password: str):
 	print("Done!")
 	return
 
+def deleteEmptyLabels():
+	defaultLabels = set("Notes", "Personal", "Receipts", "Tickets", "Work")
+	print("Getting Folder information")
+	res,folder_data = imap.list()
+	folders = list([folder.split()[-1].decode("utf-8").strip('\"') for folder in folder_data]) 
+	ans = 'x' #random char to init
+	while ans.lower() not in ('y', 'n'):
+		ans = input("Do you want to ignore the default Gmail labels?[y/n] (Notes,Personal, etc...)")
+		if ans.lower not in ('y', 'n'):
+			print("Enter a valid response")
+	
+	for folder in folders:
+		if imap.select(folder)[1][0].decode("utf-8") == '0': #decode response into string count
+			if ans == 'y' and folder in defaultLabels:
+				continue
+			print("Deleting " + folder + " that has no items.")
+			imap.delete(folder)
+	
 def main():
 	parser = argparse.ArgumentParser(description="Parse login credentials (username/app password)")
 	parser.add_argument("--username",
@@ -206,24 +234,27 @@ def main():
 
 	username, password = parsed_args.username, parsed_args.password
 	res = None 
-	login = False
+	loggedin = False
+	
 
-	while res != 4:
+	while res != 5:
 		res = menu()
 		if res == 1:
-			count, uid_map = getSenders(username,password)
-			login = True
+			loggedin = login(username,password)
 		elif res == 2:
-			if not login:
-				print("Need to run login and discovery before this")
-				continue
+			if not loggedin:
+				loggedin = login(username, password)
+			count, uid_map = getSenders(username,password,login)	
 			cutoff, ignoreList = setIgnoreList(count)
-			folders = SortEmails(count,uid_map,cutoff,ignoreList)
+			SortEmails(count,uid_map,cutoff,ignoreList)
 		elif res == 3:
-			if not login:
-				print("Need to run login and discovery before this")
-				continue
+			if not loggedin:
+				loggedin = login(username, password)
 			deleteEmails(username, password)
+		elif res == 4:
+			if not loggedin:
+				loggedin = login(username,password)
+			deleteEmptyLabels()
 		else:
 			print("Goodbye!")
 			return 
